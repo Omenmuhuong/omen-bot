@@ -1,53 +1,117 @@
+console.clear(); // Thêm dòng này
+// 📦 Import thư viện cần thiết
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
-const fs = require('node:fs');
 const path = require('node:path');
+const fs = require('node:fs');
 require('dotenv').config();
 
-// Khởi tạo client Discord
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+// 🚀 Tạo client Discord
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMembers,
+  ]
+});
 
-// Tạo collection chứa các lệnh
+// 📁 Bộ sưu tập lệnh và tương tác
 client.commands = new Collection();
+client.buttons = new Collection();   // 👈 Thêm
+client.modals = new Collection();    // 👈 Thêm
 
-// Đường dẫn đến folder "commands"
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+// 🔄 Đệ quy nạp tất cả các lệnh từ thư mục con
+const loadCommandFiles = (dirPath, commandsCollection) => {
+  const files = fs.readdirSync(dirPath);
+  for (const file of files) {
+    const fullPath = path.join(dirPath, file);
+    const stat = fs.statSync(fullPath);
 
-for (const file of commandFiles) {
-  const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  if ('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command);
-  } else {
-    console.warn(`[WARNING] The command at ${filePath} is missing "data" or "execute".`);
+    if (stat.isDirectory()) {
+      loadCommandFiles(fullPath, commandsCollection); // tiếp tục đệ quy
+    } else if (file.endsWith('.js')) {
+      try {
+        const command = require(fullPath);
+        if ('data' in command && 'execute' in command) {
+          commandsCollection.set(command.data.name, command);
+          console.log(`✅ Đã nạp lệnh: ${command.data.name}`);
+        } else {
+          console.warn(`⚠️ Lệnh thiếu data hoặc execute: ${fullPath}`);
+        }
+      } catch (err) {
+        console.error(`❌ Lỗi khi nạp lệnh ${fullPath}:`, err);
+      }
+    }
   }
+};
+
+// ▶️ Nạp tất cả lệnh
+loadCommandFiles(path.join(__dirname, 'commands'), client.commands);
+
+// 🔄 Load buttons và modals
+const loadInteractionFiles = (folderPath, collection, type) => {
+  const files = fs.readdirSync(folderPath).filter(f => f.endsWith('.js'));
+  for (const file of files) {
+    const filePath = path.join(folderPath, file);
+    const handler = require(filePath);
+    if ('id' in handler && 'execute' in handler) {
+      collection.set(handler.id, handler);
+      console.log(`✅ Đã nạp ${type}: ${handler.id}`);
+    } else {
+      console.warn(`⚠️ Thiếu id hoặc execute trong ${type}: ${filePath}`);
+    }
+  }
+};
+
+loadInteractionFiles(path.join(__dirname, 'interactions', 'buttons'), client.buttons, 'Button');
+loadInteractionFiles(path.join(__dirname, 'interactions', 'modals'), client.modals, 'Modal');
+
+// ⚙️ Xử lý tương tác
+client.on(Events.InteractionCreate, async interaction => {
+  try {
+    // Slash command
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) return console.warn(`⚠️ Không tìm thấy lệnh: ${interaction.commandName}`);
+      await command.execute(interaction);
+    }
+
+    // Button interaction
+    else if (interaction.isButton()) {
+      const button = client.buttons.get(interaction.customId);
+      if (button) await button.execute(interaction);
+    }
+
+    // Modal interaction
+    else if (interaction.isModalSubmit()) {
+      const modalIdPrefix = interaction.customId.split('_').slice(0, 2).join('_');
+      const modal = client.modals.get(modalIdPrefix);
+      if (modal) await modal.execute(interaction);
+    }
+  } catch (error) {
+    console.error('❌ Lỗi xử lý tương tác:', error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: '⚠️ Có lỗi xảy ra.', ephemeral: true });
+    } else {
+      await interaction.reply({ content: '⚠️ Có lỗi xảy ra.', ephemeral: true });
+    }
+  }
+});
+
+// 🔊 Xử lý voice temp channel nếu file tồn tại
+const tempVoicePath = path.join(__dirname, 'events', 'voice', 'tempvoice.js');
+if (fs.existsSync(tempVoicePath)) {
+  const tempVoiceEvent = require(tempVoicePath);
+  client.on(Events.VoiceStateUpdate, (...args) => tempVoiceEvent.execute(...args));
+} else {
+  console.log('ℹ️ Không tìm thấy file tempvoice.js, bỏ qua voiceStateUpdate');
 }
 
-// Khi bot sẵn sàng
-client.once(Events.ClientReady, readyClient => {
-  console.log(`✅ Ready! Logged in as ${readyClient.user.tag}`);
+// 📢 Khi bot sẵn sàng
+client.once(Events.ClientReady, client => {
+  console.log(`✅ Bot đã sẵn sàng với tên: ${client.user.tag}`);
 });
 
-// Xử lý slash command
-client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = client.commands.get(interaction.commandName);
-  if (!command) {
-    console.error(`❌ No command matching ${interaction.commandName} found.`);
-    return;
-  }
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(`💥 Error in command ${interaction.commandName}:`, error);
-    await interaction.reply({
-      content: '❌ There was an error executing that command.',
-      ephemeral: true,
-    });
-  }
-});
-
-// Đăng nhập
+// 🔐 Đăng nhập bằng token từ file .env
 client.login(process.env.TOKEN);
