@@ -112,6 +112,9 @@ if (fs.existsSync(tempVoicePath)) {
 client.once(Events.ClientReady, client => {
   console.log(`✅ Bot đã sẵn sàng với tên: ${client.user.tag}`);
 });
+require('http')
+  .createServer((req, res) => res.end('Bot is running'))
+  .listen(process.env.PORT || 3000);
 
 // 🔐 Đăng nhập bằng token từ file .env
 client.login(process.env.TOKEN);
