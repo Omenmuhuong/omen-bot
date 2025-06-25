@@ -108,6 +108,14 @@ if (fs.existsSync(tempVoicePath)) {
   console.log('ℹ️ Không tìm thấy file tempvoice.js, bỏ qua voiceStateUpdate');
 }
 
+// Load event guildMemberAdd
+const memberJoinEventPath = path.join(__dirname, 'events', 'guildMemberAdd.js');
+if (fs.existsSync(memberJoinEventPath)) {
+  const memberJoinEvent = require(memberJoinEventPath);
+  client.on(memberJoinEvent.name, (...args) => memberJoinEvent.execute(...args));
+}
+
+
 // 📢 Khi bot sẵn sàng
 client.once(Events.ClientReady, client => {
   console.log(`✅ Bot đã sẵn sàng với tên: ${client.user.tag}`);
