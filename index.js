@@ -120,16 +120,13 @@ if (fs.existsSync(memberJoinEventPath)) {
 client.once(Events.ClientReady, client => {
   console.log(`✅ Bot đã sẵn sàng với tên: ${client.user.tag}`);
 });
-require('http')
-  .createServer((req, res) => res.end('Bot is running'))
-  .listen(process.env.PORT || 3000);
 
 // 🔐 Đăng nhập bằng token từ file .env
 client.login(process.env.TOKEN);
-//Giữ chạy 24/7
+
+// 🌐 Giữ bot hoạt động 24/7 trên Render
 const express = require('express');
 const app = express();
 
 app.get('/', (req, res) => res.send('Bot is alive!'));
-app.listen(process.env.PORT || 3001, () => console.log('Web server is running'));
-
+app.listen(process.env.PORT || 3000, () => console.log('🌐 Web server is running'));
