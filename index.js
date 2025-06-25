@@ -109,7 +109,7 @@ if (fs.existsSync(tempVoicePath)) {
 }
 
 // Load event guildMemberAdd
-const memberJoinEventPath = path.join(__dirname, 'events', 'guildMemberAdd.js');
+const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
 if (fs.existsSync(memberJoinEventPath)) {
   const memberJoinEvent = require(memberJoinEventPath);
   client.on(memberJoinEvent.name, (...args) => memberJoinEvent.execute(...args));
