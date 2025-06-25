@@ -1,73 +1,115 @@
+// events/voice/tempvoice.js
+
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 
-// 🔧 Tên kênh để tạo phòng và ID danh mục chứa kênh
-const TEMP_VOICE_CHANNEL_NAME = '💞| Tạo couple room';
-const CATEGORY_ID = '1383368008872886274'; // ← Thay bằng ID danh mục thật
+// ID cấu hình
+const NORMAL_TEMP_GENERATOR_ID = '1387461758645571634';
+const COUPLE_TEMP_GENERATOR_ID = '1383375854905851934';
+const CATEGORY_ID = '1383368008872886274';
 
-// 🧠 Bộ nhớ tạm thời để chặn việc tạo trùng phòng
-const activeRooms = new Set();
+module.exports = async (oldState, newState) => {
+  const member = newState.member;
 
-module.exports = {
-  name: 'voiceStateUpdate',
-  async execute(oldState, newState) {
-    const member = newState.member;
-    const guild = newState.guild;
+  // Vào một voice mới
+  if (!oldState.channel && newState.channel) {
+    const joinedChannel = newState.channel;
 
-    // 📌 Kiểm tra nếu người dùng vào đúng kênh tạo phòng
-    if (
-      newState.channel &&
-      newState.channel.name === TEMP_VOICE_CHANNEL_NAME &&
-      newState.channel.members.size === 1 &&
-      !activeRooms.has(member.id)
-    ) {
-      activeRooms.add(member.id); // Đánh dấu là đang tạo phòng cho người này
-
-      try {
-        // 🏗️ Tạo kênh voice mới
-        const newChannel = await guild.channels.create({
-          name: `💞| I Love You 3000💗`,
-          type: ChannelType.GuildVoice,
-          parent: CATEGORY_ID,
-          permissionOverwrites: [
-  {
-    id: guild.roles.everyone,
-    allow: [PermissionFlagsBits.Connect], // ✅ Mọi người được vào
-  },
+    // ===== 1. TEMP VOICE THƯỜNG =====
+    if (joinedChannel.id === NORMAL_TEMP_GENERATOR_ID) {
+      const newChannel = await newState.guild.channels.create({
+        name: `Voice của ${member.user.username}`,
+        type: ChannelType.GuildVoice,
+        parent: CATEGORY_ID,
+        permissionOverwrites: [
   {
     id: member.id,
     allow: [
       PermissionFlagsBits.Connect,
-      PermissionFlagsBits.ManageChannels,
-      PermissionFlagsBits.MoveMembers,
-      PermissionFlagsBits.MuteMembers,
-    ],
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.ManageChannels // 👈 quyền chỉnh sửa voice
+    ]
   },
-],
+          {
+            id: newState.guild.roles.everyone.id,
+            allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel]
+          }
+        ]
+      });
 
-          userLimit: 2,
-        });
-
-        // 🚪 Di chuyển người dùng vào kênh mới
-        await newState.setChannel(newChannel);
-      } catch (err) {
-        console.error('❌ Lỗi khi tạo hoặc move vào phòng mới:', err);
-      } finally {
-        setTimeout(() => activeRooms.delete(member.id), 5000); // Dọn dẹp sau 5 giây
-      }
+      await member.voice.setChannel(newChannel);
     }
 
-    // 🧹 Tự xóa phòng khi không còn ai
-    if (
-      oldState.channel &&
-      oldState.channel.parentId === CATEGORY_ID &&
-      oldState.channel.members.size === 0 &&
-      oldState.channel.name.startsWith('💞| I Love You')
-    ) {
-      try {
-        await oldState.channel.delete();
-      } catch (err) {
-        console.error('❌ Lỗi khi xóa phòng:', err);
+    // ===== 2. TEMP VOICE COUPLE =====
+    else if (joinedChannel.id === COUPLE_TEMP_GENERATOR_ID) {
+      const newChannel = await newState.guild.channels.create({
+        name: `Couple của ${member.user.username}`,
+        type: ChannelType.GuildVoice,
+        parent: CATEGORY_ID,
+        permissionOverwrites: [
+  {
+    id: member.id,
+    allow: [
+      PermissionFlagsBits.Connect,
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.ManageChannels // 👈 quyền chỉnh sửa voice
+    ]
+  },
+          {
+            id: newState.guild.roles.everyone.id,
+            allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel]
+          }
+        ]
+      });
+
+      await member.voice.setChannel(newChannel);
+    }
+  }
+
+  // ===== 3. XỬ LÝ PHÒNG TẠM =====
+  const tempChannel = oldState.channel ?? newState.channel;
+  if (
+    tempChannel &&
+    tempChannel.parentId === CATEGORY_ID &&
+    tempChannel.id !== NORMAL_TEMP_GENERATOR_ID &&
+    tempChannel.id !== COUPLE_TEMP_GENERATOR_ID
+  ) {
+    const members = tempChannel.members;
+
+    // ===== Nếu không còn ai → xoá kênh =====
+    if (members.size === 0) {
+      tempChannel.delete().catch(() => {});
+      return;
+    }
+
+    // ===== Nếu là kênh couple =====
+    if (tempChannel.name.startsWith('Couple của')) {
+      const nonBotMembers = [...members.values()].filter(m => !m.user.bot);
+
+      if (nonBotMembers.length === 2) {
+        // Ẩn kênh khỏi @everyone, chỉ để 2 người thấy
+        await tempChannel.permissionOverwrites.set([
+          {
+            id: tempChannel.guild.roles.everyone.id,
+            deny: [PermissionFlagsBits.ViewChannel]
+          },
+          ...nonBotMembers.map(m => ({
+            id: m.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
+          }))
+        ]);
+      } else {
+        // Hiện lại kênh cho @everyone
+        await tempChannel.permissionOverwrites.set([
+          {
+            id: tempChannel.guild.roles.everyone.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
+          },
+          ...nonBotMembers.map(m => ({
+            id: m.id,
+            allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.Connect]
+          }))
+        ]);
       }
     }
-  },
+  }
 };

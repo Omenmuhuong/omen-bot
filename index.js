@@ -99,14 +99,7 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 🔊 Xử lý voice temp channel nếu file tồn tại
-const tempVoicePath = path.join(__dirname, 'events', 'voice', 'tempvoice.js');
-if (fs.existsSync(tempVoicePath)) {
-  const tempVoiceEvent = require(tempVoicePath);
-  client.on(Events.VoiceStateUpdate, (...args) => tempVoiceEvent.execute(...args));
-} else {
-  console.log('ℹ️ Không tìm thấy file tempvoice.js, bỏ qua voiceStateUpdate');
-}
+client.on(Events.VoiceStateUpdate, require('./events/voice/tempvoice.js'));
 
 // 🎉 Xử lý khi thành viên mới vào
 const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
