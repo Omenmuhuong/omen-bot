@@ -108,13 +108,12 @@ if (fs.existsSync(tempVoicePath)) {
   console.log('ℹ️ Không tìm thấy file tempvoice.js, bỏ qua voiceStateUpdate');
 }
 
-
+// 🎉 Xử lý khi thành viên mới vào
 const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
 if (fs.existsSync(memberJoinEventPath)) {
   const memberJoinEvent = require(memberJoinEventPath);
   client.on(memberJoinEvent.name, (...args) => memberJoinEvent.execute(...args));
 }
-
 
 // 📢 Khi bot sẵn sàng
 client.once(Events.ClientReady, client => {
@@ -122,7 +121,25 @@ client.once(Events.ClientReady, client => {
 });
 
 // 🔐 Đăng nhập bằng token từ file .env
-client.login(process.env.TOKEN);
+(async () => {
+  try {
+    await client.login(process.env.TOKEN);
+  } catch (error) {
+    console.error('❌ Lỗi khi đăng nhập bot:', error);
+    process.exit(1); // Thoát để Render tự khởi động lại
+  }
+})();
+
+// 🛡️ Bắt lỗi không mong muốn để tự restart
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled Rejection:', reason);
+  process.exit(1); // Render sẽ restart
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  process.exit(1); // Render sẽ restart
+});
 
 // 🌐 Giữ bot hoạt động 24/7 trên Render
 const express = require('express');

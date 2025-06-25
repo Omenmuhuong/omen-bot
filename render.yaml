@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: my-discord-bot
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    autoDeploy: true
+    envVars:
+      - key: TOKEN
+        sync: false
