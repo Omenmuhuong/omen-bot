@@ -108,7 +108,7 @@ if (fs.existsSync(tempVoicePath)) {
   console.log('ℹ️ Không tìm thấy file tempvoice.js, bỏ qua voiceStateUpdate');
 }
 
-// Load event guildMemberAdd
+
 const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
 if (fs.existsSync(memberJoinEventPath)) {
   const memberJoinEvent = require(memberJoinEventPath);
@@ -131,4 +131,5 @@ const express = require('express');
 const app = express();
 
 app.get('/', (req, res) => res.send('Bot is alive!'));
-app.listen(3000, () => console.log('Web server is running on port 3000'));
+app.listen(process.env.PORT || 3001, () => console.log('Web server is running'));
+
