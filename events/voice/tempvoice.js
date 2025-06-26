@@ -7,28 +7,31 @@ const NORMAL_TEMP_GENERATOR_ID = '1387461758645571634';
 const COUPLE_TEMP_GENERATOR_ID = '1383375854905851934';
 const CATEGORY_ID = '1383368008872886274';
 
+// Bộ nhớ tạm để lưu ID phòng couple
+const coupleRooms = new Set();
+
 module.exports = async (oldState, newState) => {
   const member = newState.member;
 
-  // Vào một voice mới
+  // ===== Vào voice mới =====
   if (!oldState.channel && newState.channel) {
     const joinedChannel = newState.channel;
 
     // ===== 1. TEMP VOICE THƯỜNG =====
     if (joinedChannel.id === NORMAL_TEMP_GENERATOR_ID) {
       const newChannel = await newState.guild.channels.create({
-        name: `Voice của ${member.user.username}`,
+        name: `👥| ${member.user.username}'s Voice`,
         type: ChannelType.GuildVoice,
         parent: CATEGORY_ID,
         permissionOverwrites: [
-  {
-    id: member.id,
-    allow: [
-      PermissionFlagsBits.Connect,
-      PermissionFlagsBits.ViewChannel,
-      PermissionFlagsBits.ManageChannels // 👈 quyền chỉnh sửa voice
-    ]
-  },
+          {
+            id: member.id,
+            allow: [
+              PermissionFlagsBits.Connect,
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.ManageChannels
+            ]
+          },
           {
             id: newState.guild.roles.everyone.id,
             allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel]
@@ -42,18 +45,18 @@ module.exports = async (oldState, newState) => {
     // ===== 2. TEMP VOICE COUPLE =====
     else if (joinedChannel.id === COUPLE_TEMP_GENERATOR_ID) {
       const newChannel = await newState.guild.channels.create({
-        name: `Couple của ${member.user.username}`,
+        name: `💗| I love you 3000`,
         type: ChannelType.GuildVoice,
         parent: CATEGORY_ID,
         permissionOverwrites: [
-  {
-    id: member.id,
-    allow: [
-      PermissionFlagsBits.Connect,
-      PermissionFlagsBits.ViewChannel,
-      PermissionFlagsBits.ManageChannels // 👈 quyền chỉnh sửa voice
-    ]
-  },
+          {
+            id: member.id,
+            allow: [
+              PermissionFlagsBits.Connect,
+              PermissionFlagsBits.ViewChannel,
+              PermissionFlagsBits.ManageChannels
+            ]
+          },
           {
             id: newState.guild.roles.everyone.id,
             allow: [PermissionFlagsBits.Connect, PermissionFlagsBits.ViewChannel]
@@ -61,12 +64,15 @@ module.exports = async (oldState, newState) => {
         ]
       });
 
+      coupleRooms.add(newChannel.id); // ✅ Ghi nhớ ID phòng couple
+
       await member.voice.setChannel(newChannel);
     }
   }
 
-  // ===== 3. XỬ LÝ PHÒNG TẠM =====
+  // ===== XỬ LÝ PHÒNG TẠM =====
   const tempChannel = oldState.channel ?? newState.channel;
+
   if (
     tempChannel &&
     tempChannel.parentId === CATEGORY_ID &&
@@ -75,18 +81,19 @@ module.exports = async (oldState, newState) => {
   ) {
     const members = tempChannel.members;
 
-    // ===== Nếu không còn ai → xoá kênh =====
+    // ===== Nếu phòng trống → xoá kênh =====
     if (members.size === 0) {
+      coupleRooms.delete(tempChannel.id); // ❌ Xoá ID khỏi danh sách nếu là couple
       tempChannel.delete().catch(() => {});
       return;
     }
 
-    // ===== Nếu là kênh couple =====
-    if (tempChannel.name.startsWith('Couple của')) {
+    // ===== Nếu là kênh couple → xử lý ẩn/hiện =====
+    if (coupleRooms.has(tempChannel.id)) {
       const nonBotMembers = [...members.values()].filter(m => !m.user.bot);
 
       if (nonBotMembers.length === 2) {
-        // Ẩn kênh khỏi @everyone, chỉ để 2 người thấy
+        // Ẩn phòng khỏi @everyone
         await tempChannel.permissionOverwrites.set([
           {
             id: tempChannel.guild.roles.everyone.id,
@@ -98,7 +105,7 @@ module.exports = async (oldState, newState) => {
           }))
         ]);
       } else {
-        // Hiện lại kênh cho @everyone
+        // Hiện lại phòng cho @everyone
         await tempChannel.permissionOverwrites.set([
           {
             id: tempChannel.guild.roles.everyone.id,
