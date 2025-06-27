@@ -99,8 +99,6 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-client.on(Events.VoiceStateUpdate, require('./events/voice/tempvoice.js'));
-
 // 🎉 Xử lý khi thành viên mới vào
 const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
 if (fs.existsSync(memberJoinEventPath)) {
