@@ -99,12 +99,9 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 });
 
-// 🎉 Xử lý khi thành viên mới vào
-const memberJoinEventPath = path.join(__dirname, 'events', 'welcome.js');
-if (fs.existsSync(memberJoinEventPath)) {
-  const memberJoinEvent = require(memberJoinEventPath);
-  client.on(memberJoinEvent.name, (...args) => memberJoinEvent.execute(...args));
-}
+// 📢 Xử lý thư mục events
+const welcomeEvent = require('./events/welcome');
+client.on(welcomeEvent.name, (...args) => welcomeEvent.execute(...args));
 
 // 📢 Khi bot sẵn sàng
 client.once(Events.ClientReady, client => {
